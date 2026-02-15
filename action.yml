@@ -1,0 +1,52 @@
+name: setup-devenv
+description: Activate devenv environment for CI jobs with image/auto/install modes and basic verification.
+
+inputs:
+  mode:
+    description: "Activation mode: auto, image, or install."
+    required: false
+    default: auto
+  activation_script_path:
+    description: Path to pre-baked activation script on runner image.
+    required: false
+    default: /home/runner/copilot-devenv-activate.sh
+  verify_files:
+    description: Newline-delimited repository file paths that must exist.
+    required: false
+    default: ''
+  verify_commands:
+    description: Newline-delimited command names that must be available.
+    required: false
+    default: devenv
+  runner_label_hint:
+    description: Optional runner label used in error messages.
+    required: false
+    default: ''
+
+outputs:
+  activation_mode:
+    description: Effective activation mode used (script, fallback, install).
+    value: ${{ steps.run.outputs.activation_mode }}
+  activation_seconds:
+    description: Time spent in activation and verification.
+    value: ${{ steps.run.outputs.activation_seconds }}
+  devenv_bin:
+    description: Resolved devenv binary path.
+    value: ${{ steps.run.outputs.devenv_bin }}
+  verification_status:
+    description: Verification status for required files and commands.
+    value: ${{ steps.run.outputs.verification_status }}
+
+runs:
+  using: composite
+  steps:
+    - id: run
+      shell: bash
+      env:
+        MODE: ${{ inputs.mode }}
+        ACTIVATION_SCRIPT_PATH: ${{ inputs.activation_script_path }}
+        VERIFY_FILES: ${{ inputs.verify_files }}
+        VERIFY_COMMANDS: ${{ inputs.verify_commands }}
+        RUNNER_LABEL_HINT: ${{ inputs.runner_label_hint }}
+      run: |
+        bash "${{ github.action_path }}/scripts/setup-devenv.sh"

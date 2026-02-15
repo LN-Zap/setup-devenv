@@ -1,0 +1,64 @@
+name: Smoke Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Install shellcheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Lint shell scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          shellcheck scripts/*.sh
+
+      - name: Create activation script
+        id: activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          script_path="$RUNNER_TEMP/smoke-activate.sh"
+          cat <<'EOF' > "$script_path"
+          #!/usr/bin/env bash
+          set -euo pipefail
+          echo "/usr/bin" >> "$GITHUB_PATH"
+          EOF
+          chmod +x "$script_path"
+          echo "path=$script_path" >> "$GITHUB_OUTPUT"
+
+      - name: Run setup-devenv action
+        id: setup
+        uses: ./
+        with:
+          mode: image
+          activation_script_path: ${{ steps.activation.outputs.path }}
+          verify_files: README.md
+          verify_commands: bash
+
+      - name: Validate outputs
+        shell: bash
+        env:
+          ACTIVATION_MODE: ${{ steps.setup.outputs.activation_mode }}
+          VERIFICATION_STATUS: ${{ steps.setup.outputs.verification_status }}
+        run: |
+          set -euo pipefail
+          test "$ACTIVATION_MODE" = "script"
+          test "$VERIFICATION_STATUS" = "ok"
